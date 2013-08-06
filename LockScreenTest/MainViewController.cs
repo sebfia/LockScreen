@@ -6,18 +6,20 @@ using LockScreen;
 
 namespace LockScreenTest
 {
-    public sealed class LufthansaLockScreenMessages : LockScreenMessages
+    public sealed class MyLockScreenMessages : LockScreenMessages
     {
-        public LufthansaLockScreenMessages()
+        public MyLockScreenMessages()
         {
-            this.EnterPasswordTitle = "Bitte geben Sie Ihr Passwort ein";
-            this.SetPasswordTitle = "Legen Sie Ihr neues Passwort fest";
+            this.EnterPasswordTitle = "Please enter your password.";
+            this.SetPasswordTitle = "Define your new password.";
+			this.EnterOldPasswordTitle = "Please enter your old password.";
+			this.ReEnterNewPasswortTitle = "Please re-enter your new password.";
         }
     }
 
-    public sealed class LufthansaLockScreenAppearence : LockScreenAppearence
+    public sealed class MyLockScreenAppearence : LockScreenAppearence
     {
-        public LufthansaLockScreenAppearence()
+        public MyLockScreenAppearence()
         {
             this.BackgroundColor = UIColor.FromRGB(255, 179, 0);
             this.TitleColor = UIColor.FromRGB(9, 9, 72);
@@ -25,10 +27,10 @@ namespace LockScreenTest
         }
     }
 
-    public sealed class LufthansaLockScreenSettings : LockScreenSettings
+    public sealed class MyLockScreenSettings : LockScreenSettings
     {
-        public LufthansaLockScreenSettings()
-            : base(new LufthansaLockScreenAppearence(), new LufthansaLockScreenMessages())
+        public MyLockScreenSettings()
+            : base(new MyLockScreenAppearence(), new MyLockScreenMessages())
         {
         }
     }
@@ -47,8 +49,7 @@ namespace LockScreenTest
         public MainViewController()
             : base (UserInterfaceIdiomIsPhone ? "MainViewController_iPhone" : "MainViewController_iPad" , null)
         {
-            _lockScreenController = new LockScreenController(new LufthansaLockScreenSettings());
-//            _lockScreenController = new DefaultLockScreenController();
+            _lockScreenController = new LockScreenController(new MyLockScreenSettings());
         }
         
         public override void ViewDidLoad()
@@ -60,11 +61,26 @@ namespace LockScreenTest
 
             };
 
-            definePasswordButton.TouchUpInside += (object sender, EventArgs e) => {
+            definePasswordButton.TouchUpInside += (object sender, EventArgs e) => 
+			{
                 _lockScreenController.Activate(this, LockScreenController.Mode.SetPassword, WhenPasswordDefined);
             };
-            // Perform any additional setup after loading the view, typically from a nib.
+
+			changePasswordButton.TouchUpInside += (object sender, EventArgs e) => 
+			{
+				_lockScreenController.Activate(this, LockScreenController.Mode.ChangePassword, WhenOldPasswordEntered);
+			};
         }
+
+		private void WhenOldPasswordEntered(string oldPassword)
+		{
+			if (oldPassword == "1234") {
+				_lockScreenController.AnimateValidPassword (false);
+				_lockScreenController.ChangeMode (LockScreenController.Mode.SetPassword);
+				_lockScreenController.ExchangeContinuation (WhenPasswordDefined);
+			} else
+				_lockScreenController.AnimateInvalidPassword (false);
+		}
 
         private void WhenPasswordEntered(string password)
         {
@@ -88,10 +104,7 @@ namespace LockScreenTest
         
         public override void DidReceiveMemoryWarning()
         {
-            // Releases the view if it doesn't have a superview.
             base.DidReceiveMemoryWarning();
-            
-            // Release any cached data, images, etc that aren't in use.
         }
         
         partial void showInfo(NSObject sender)

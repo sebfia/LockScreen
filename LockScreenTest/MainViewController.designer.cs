@@ -12,16 +12,24 @@ namespace LockScreenTest
 	partial class MainViewController
 	{
 		[Outlet]
-		MonoTouch.UIKit.UIButton showLockScreenButton { get; set; }
+		MonoTouch.UIKit.UIButton changePasswordButton { get; set; }
 
 		[Outlet]
 		MonoTouch.UIKit.UIButton definePasswordButton { get; set; }
+
+		[Outlet]
+		MonoTouch.UIKit.UIButton showLockScreenButton { get; set; }
 
 		[Action ("showInfo:")]
 		partial void showInfo (MonoTouch.Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (changePasswordButton != null) {
+				changePasswordButton.Dispose ();
+				changePasswordButton = null;
+			}
+
 			if (showLockScreenButton != null) {
 				showLockScreenButton.Dispose ();
 				showLockScreenButton = null;
