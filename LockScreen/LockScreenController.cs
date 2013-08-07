@@ -465,7 +465,7 @@ namespace LockScreen
                 _fakeField.BecomeFirstResponder();
         }
 
-        public void ExchangeContinuation(Action<string> continueWith)
+        public void SwapContinuation(Action<string> continueWith)
         {
             _passwordEntryFinished = continueWith;
         }

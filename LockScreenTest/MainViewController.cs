@@ -77,7 +77,7 @@ namespace LockScreenTest
 			if (oldPassword == "1234") {
 				_lockScreenController.AnimateValidPassword (false);
 				_lockScreenController.ChangeMode (LockScreenController.Mode.SetPassword);
-				_lockScreenController.ExchangeContinuation (WhenPasswordDefined);
+				_lockScreenController.SwapContinuation (WhenPasswordDefined);
 			} else
 				_lockScreenController.AnimateInvalidPassword (false);
 		}
