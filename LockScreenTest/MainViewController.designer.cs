@@ -4,7 +4,7 @@
 // actions made in the Xcode designer. If it is removed, they will be lost.
 // Manual changes to this file may not be handled correctly.
 //
-using MonoTouch.Foundation;
+using Foundation;
 
 namespace LockScreenTest
 {
@@ -12,16 +12,16 @@ namespace LockScreenTest
 	partial class MainViewController
 	{
 		[Outlet]
-		MonoTouch.UIKit.UIButton changePasswordButton { get; set; }
+		UIKit.UIButton changePasswordButton { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton definePasswordButton { get; set; }
+		UIKit.UIButton definePasswordButton { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton showLockScreenButton { get; set; }
+		UIKit.UIButton showLockScreenButton { get; set; }
 
 		[Action ("showInfo:")]
-		partial void showInfo (MonoTouch.Foundation.NSObject sender);
+		partial void showInfo (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{

@@ -1,7 +1,7 @@
 using System;
 
-using MonoTouch.Foundation;
-using MonoTouch.UIKit;
+using Foundation;
+using UIKit;
 using LockScreen;
 
 namespace LockScreenTest
@@ -52,51 +52,38 @@ namespace LockScreenTest
             _lockScreenController = new LockScreenController(new MyLockScreenSettings());
         }
         
-        public override void ViewDidLoad()
+		public override void ViewDidLoad()
         {
             base.ViewDidLoad();
-            showLockScreenButton.TouchUpInside += (object sender, EventArgs e) => 
-            {
-                _lockScreenController.Activate(this, LockScreenController.Mode.CheckPassword, WhenPasswordEntered);
+            showLockScreenButton.TouchUpInside += async (sender, e) => {
+				var pwd = await _lockScreenController.Activate (this, LockScreenController.Mode.CheckPassword);
 
-            };
+				while (pwd != "1234")
+					pwd = await _lockScreenController.AnimateInvalidPassword (false);
+					
+				await _lockScreenController.AnimateValidPassword (true);
+			};
 
-            definePasswordButton.TouchUpInside += (object sender, EventArgs e) => 
-			{
-                _lockScreenController.Activate(this, LockScreenController.Mode.SetPassword, WhenPasswordDefined);
-            };
+            definePasswordButton.TouchUpInside += async (sender, e) => {
+				var pwd = await _lockScreenController.Activate (this, LockScreenController.Mode.SetPassword);
+				UIAlertView alertView = new UIAlertView("Password defined", "You have defined password: " + pwd, null, "OK");
+				alertView.Show();
+			};
 
-			changePasswordButton.TouchUpInside += (object sender, EventArgs e) => 
-			{
-				_lockScreenController.Activate(this, LockScreenController.Mode.ChangePassword, WhenOldPasswordEntered);
+			changePasswordButton.TouchUpInside += async (sender, e) => {
+				var pwd = await _lockScreenController.Activate (this, LockScreenController.Mode.ChangePassword);
+
+				while(pwd != "1234")
+				{
+					pwd = await _lockScreenController.AnimateInvalidPassword(false);
+				}
+				await _lockScreenController.AnimateValidPassword(false);
+				var newPwd = await _lockScreenController.ChangeMode(LockScreenController.Mode.SetPassword);
+				UIAlertView alertView = new UIAlertView("Password defined", "You have defined password: " + newPwd, null, "OK");
+				alertView.Show();
 			};
         }
-
-		private void WhenOldPasswordEntered(string oldPassword)
-		{
-			if (oldPassword == "1234") {
-				_lockScreenController.AnimateValidPassword (false);
-				_lockScreenController.ChangeMode (LockScreenController.Mode.SetPassword);
-				_lockScreenController.SwapContinuation (WhenPasswordDefined);
-			} else
-				_lockScreenController.AnimateInvalidPassword (false);
-		}
-
-        private void WhenPasswordEntered(string password)
-        {
-            if (password == "1234")
-                NSTimer.CreateScheduledTimer(0.5, () => _lockScreenController.AnimateValidPassword(true));
-            else
-                NSTimer.CreateScheduledTimer(0.5, () => _lockScreenController.AnimateInvalidPassword(false));
-        }
-
-        private void WhenPasswordDefined(string password)
-        {
-            UIAlertView alertView = new UIAlertView("Password defined", "You have defined password: " + password, null, "OK");
-            alertView.Show();
-            NSTimer.CreateScheduledTimer(0.5, _lockScreenController.DeactivateImmediately);
-        }
-        
+			
         public override UIInterfaceOrientationMask GetSupportedInterfaceOrientations()
         {
             return UIInterfaceOrientationMask.Portrait;

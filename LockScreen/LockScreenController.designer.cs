@@ -4,7 +4,7 @@
 // actions made in the Xcode designer. If it is removed, they will be lost.
 // Manual changes to this file may not be handled correctly.
 //
-using MonoTouch.Foundation;
+using Foundation;
 
 namespace LockScreen
 {
@@ -12,55 +12,55 @@ namespace LockScreen
 	partial class LockScreenController
 	{
 		[Outlet]
-		MonoTouch.UIKit.UIButton zero { get; set; }
+		UIKit.UIButton zero { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton two { get; set; }
+		UIKit.UIButton two { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton three { get; set; }
+		UIKit.UIButton three { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton four { get; set; }
+		UIKit.UIButton four { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton five { get; set; }
+		UIKit.UIButton five { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton six { get; set; }
+		UIKit.UIButton six { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton seven { get; set; }
+		UIKit.UIButton seven { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton eight { get; set; }
+		UIKit.UIButton eight { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton nine { get; set; }
+		UIKit.UIButton nine { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton back { get; set; }
+		UIKit.UIButton back { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIButton one { get; set; }
+		UIKit.UIButton one { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UIView animationView { get; set; }
+		UIKit.UIView animationView { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UILabel titleLabel { get; set; }
+		UIKit.UILabel titleLabel { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UITextField pinBox0 { get; set; }
+		UIKit.UITextField pinBox0 { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UITextField pinBox1 { get; set; }
+		UIKit.UITextField pinBox1 { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UITextField pinBox2 { get; set; }
+		UIKit.UITextField pinBox2 { get; set; }
 
 		[Outlet]
-		MonoTouch.UIKit.UITextField pinBox3 { get; set; }
+		UIKit.UITextField pinBox3 { get; set; }
 		
 		void ReleaseDesignerOutlets ()
 		{

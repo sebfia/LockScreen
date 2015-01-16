@@ -1,8 +1,8 @@
 using System;
-using System.Drawing;
+using CoreGraphics;
 
-using MonoTouch.Foundation;
-using MonoTouch.UIKit;
+using Foundation;
+using UIKit;
 
 namespace LockScreenTest
 {
@@ -10,7 +10,7 @@ namespace LockScreenTest
     {
         public FlipsideViewController() : base ("FlipsideViewController", null)
         {
-            this.ContentSizeForViewInPopover = new SizeF(320f, 480f);
+            this.ContentSizeForViewInPopover = new CGSize(320f, 480f);
         }
         
         public override void ViewDidLoad()

@@ -1,17 +1,18 @@
 using System;
-using System.Drawing;
-using MonoTouch.AudioToolbox;
-using MonoTouch.CoreAnimation;
-using MonoTouch.Foundation;
-using MonoTouch.UIKit;
+using CoreGraphics;
+using AudioToolbox;
+using CoreAnimation;
+using Foundation;
+using UIKit;
 using System.Diagnostics;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace LockScreen
 {
     public static class Do
     {
-        public static readonly NSAction Nothing = () => { };
+        public static readonly Action Nothing = () => { };
     }
 
     public abstract class LockScreenSettings
@@ -93,10 +94,9 @@ namespace LockScreen
         private string _previousPasscode;
         private string _passcode;
         private UITextView _fakeField;
-        private Action<string> _passwordEntryFinished;
+		private TaskCompletionSource<string> _passwordEntryFinished;
         private readonly LockScreenSettings _settings;
         private Mode _mode = Mode.CheckPassword;
-        private Action _whenAnimationFinished;
         private bool _isActivated;
 
         static bool IsIPhone
@@ -124,7 +124,7 @@ namespace LockScreen
             pinBox2.BackgroundColor = _settings.Appearence.PinBoxColor;
             pinBox3.BackgroundColor = _settings.Appearence.PinBoxColor;
 
-            _fakeField = new UITextView(RectangleF.Empty)
+            _fakeField = new UITextView(CGRect.Empty)
                              {
                                  KeyboardType = UIKeyboardType.NumberPad,
                                  SecureTextEntry = true
@@ -187,9 +187,10 @@ namespace LockScreen
             return UIInterfaceOrientationMask.Portrait;
         }
 
-        public void ChangeMode(Mode newMode)
+		public async Task<string> ChangeMode(Mode newMode)
         {
             SetMode(newMode);
+			return await PasswordEntered ();
         }
 
         private void SetMode(Mode mode)
@@ -210,81 +211,88 @@ namespace LockScreen
             }
         }
 
-        public void Activate(UIViewController parentController, Mode mode, Action<string> whenPasswordEntered)
-        {
-            _isActivated = true;
-            _passwordEntryFinished = whenPasswordEntered;
-            parentController.PresentViewController(this, false, Do.Nothing);
+		Task<string> PasswordEntered()
+		{
+			_passwordEntryFinished = null;
+			_passwordEntryFinished = new TaskCompletionSource<string> ();
+			return _passwordEntryFinished.Task;
+		}
 
-            if(IsIPhone)
-                _fakeField.BecomeFirstResponder();
+		public async Task<string> Activate(UIViewController parent, Mode mode)
+		{
+			_isActivated = true;
+			parent.PresentViewController(this, false, Do.Nothing);
 
-            _whenAnimationFinished = null;
-            ResetPassword();
-            ResetPinBoxes();
-            ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
-            
-            SetMode(mode);
-        }
+			if(IsIPhone)
+				_fakeField.BecomeFirstResponder();
+				
+			ResetPassword();
+			ResetPinBoxes();
+			ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
+
+			SetMode(mode);
+
+			return await PasswordEntered ();
+		}
 
         public bool IsActivated
         {
             get { return _isActivated; }
         }
 
-        public void DeactivateImmediately()
-        {
-            if (_isActivated)
-            {
-                _passwordEntryFinished = null;
-                _isActivated = false;
-                ResetPassword();
-                ResetPinBoxes();
-                ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
-                SetMode(Mode.CheckPassword);
-                DismissViewController(false, Do.Nothing);
-            }
-        }
+		public async Task Deactivate()
+		{
+			if(_isActivated)
+			{
+				_passwordEntryFinished = null;
+				_isActivated = false;
+				ResetPassword();
+				ResetPinBoxes();
+				ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
+				SetMode(Mode.CheckPassword);
+				await DismissViewControllerAsync (false);
+				DismissViewController(false, Do.Nothing);
+			}
+		}
 
-        private void Deactivate(TimeSpan delay)
-        {
-            NSTimer.CreateScheduledTimer(delay,
-                                         () =>
-                                             {
-                _isActivated =false;
-                                                 _passwordEntryFinished = null;
-                                                 DismissViewController(true, Do.Nothing);
-                                             });
-        }
+		public async Task DeactivateWithDelay(int milliseconds)
+		{
+			await Task.Delay (TimeSpan.FromMilliseconds (milliseconds));
+			await Deactivate ();
+		}
 
-        public void AnimateInvalidPassword(bool deactivateAfterAnimation)
+		public async Task<string> AnimateInvalidPassword(bool deactivateAfterAnimation)
         {
             ChangePinBoxBallColor(_settings.Appearence.InvalidPasswordPinTextColor);
+			await AnimateInvalidEntryAsync ();
 
-            if (deactivateAfterAnimation)
-                _whenAnimationFinished = () => Deactivate(TimeSpan.FromSeconds(0.2));
-
-            NSTimer.CreateScheduledTimer(TimeSpan.FromSeconds(0.3), AnimateInvalidEntry);
+			if (deactivateAfterAnimation) {
+				await DeactivateWithDelay (200);
+				return null;
+			}
+			else
+			{
+				return await PasswordEntered ();
+			}
         }
 
-        public void AnimateValidPassword(bool deactivateAfterAnimation)
+		public async Task AnimateValidPassword(bool deactivateAfterAnimation)
         {
             ChangePinBoxBallColor(_settings.Appearence.ValidPasswordPinTextColor);
+			await AnimateValidEntryAsnyc();
 
-            if (deactivateAfterAnimation)
-                _whenAnimationFinished = () => Deactivate(TimeSpan.FromSeconds(0.2));
+			if (_mode == Mode.ChangePassword)
+			{
+				_mode = Mode.SetPassword;
+				titleLabel.Text = _settings.Messages.SetPasswordTitle;
+				await AnimateSetupForSecondEntry ();
+			}
 
-            if (_mode == Mode.ChangePassword)
-            {
-                _mode = Mode.SetPassword;
-                titleLabel.Text = _settings.Messages.SetPasswordTitle;
-                _whenAnimationFinished = AnimateSetupForSecondEntry;
-            }
-
-            NSTimer.CreateScheduledTimer(TimeSpan.FromSeconds(0.3), AnimateValidEntry);
+			if (deactivateAfterAnimation && _mode != Mode.ChangePassword)
+				await DeactivateWithDelay (200);
         }
 
-        private void PasswordChanged(object sender, EventArgs e)
+		private async void PasswordChanged(object sender, EventArgs e)
         {
             _passcode = _fakeField.Text;
 
@@ -319,45 +327,43 @@ namespace LockScreen
                     pinBox1.Text = "*";
                     pinBox2.Text = "*";
                     pinBox3.Text = "*";
-                    WhenPasswordEntryFinished();
+                    await WhenPasswordEntryFinished();
                     break;
             }
         }
 
-        private void WhenPasswordEntryFinished()
-        {
-            switch (_mode)
-            {
-                    case Mode.SetPassword:
-                    if (_previousPasscode == null)//passcode has been entered for the first time
-                    {
-                        _previousPasscode = _passcode;
-                        titleLabel.Text = _settings.Messages.ReEnterNewPasswortTitle;
-                        AnimateSetupForSecondEntry();
-                    }
-                    else
-                    {
-                        if (_previousPasscode != _passcode)//passcodes do not match
-                        {
-                            ChangePinBoxBallColor(UIColor.Red);
-                            _whenAnimationFinished = () => titleLabel.Text = _settings.Messages.SetPasswordTitle;
-                            NSTimer.CreateScheduledTimer(0.3, AnimateInvalidEntry);
-                        }
-                        else//passcodes match
-                        {
-                            if (_passwordEntryFinished != null)
-                                _passwordEntryFinished(_passcode);
-                            ResetPassword();
-                        }
-                    }
-                    break;
+		private void TrySetPassword(string password)
+		{
+			if (_passwordEntryFinished != null)
+				_passwordEntryFinished.TrySetResult (password);
+		}
 
-                    default:
-                    if (_passwordEntryFinished != null)
-                        _passwordEntryFinished(_passcode);
-                    break;
-            }
-        }
+		private async Task WhenPasswordEntryFinished()
+		{
+			switch (_mode) {
+			case Mode.SetPassword:
+				if (_previousPasscode == null) {//passcode has been entered for the first time
+					_previousPasscode = _passcode;
+					titleLabel.Text = _settings.Messages.ReEnterNewPasswortTitle;
+					await AnimateSetupForSecondEntry ();
+				} else {
+					if (_previousPasscode != _passcode) {//passcodes do not match
+						ChangePinBoxBallColor (UIColor.Red);
+						await AnimateInvalidEntryAsync ();
+						titleLabel.Text = _settings.Messages.SetPasswordTitle;
+					} else {//passcodes match
+						TrySetPassword (_passcode);
+						ResetPassword ();
+						await DeactivateWithDelay (100);
+					}
+				}
+				break;
+
+			default:
+				TrySetPassword (_passcode);
+				break;
+			}
+		}
 
         private void ChangePinBoxBallColor(UIColor color)
         {
@@ -382,65 +388,89 @@ namespace LockScreen
             _fakeField.Text = null;
         }
 
-        private void AnimateInvalidEntry()
+		Task<bool?> AnimateInvalidEntryAsync()
+		{
+			var tcs = new TaskCompletionSource<bool?> ();
+
+			ResetPassword();
+
+			SystemSound.Vibrate.PlaySystemSound();
+
+			var animation = CABasicAnimation.FromKeyPath("position");
+			animation.RemovedOnCompletion = true;
+			animation.AnimationStopped += (s,e) => {
+				ResetPinBoxes();
+				ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
+				tcs.SetResult(null);
+			};
+			animation.TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseOut);
+			animation.Duration = 0.08;
+			animation.RepeatCount = 4;
+			animation.AutoReverses = true;
+			animation.From = NSValue.FromCGPoint (new CGPoint (animationView.Center.X - 10.0f, animationView.Center.Y));
+			animation.To = NSValue.FromCGPoint(new CGPoint(animationView.Center.X + 10.0f, animationView.Center.Y));
+			animationView.Layer.AddAnimation(animation, "position");
+
+			return tcs.Task;
+		}
+
+
+		Task<bool?> AnimateValidEntryAsnyc()
+		{
+			var tcs = new TaskCompletionSource<bool?> ();
+
+			ResetPassword();
+
+			var animation = CABasicAnimation.FromKeyPath("position");
+			animation.RemovedOnCompletion = true;
+			animation.AnimationStopped += (s, e) => {
+				ResetPinBoxes();
+				ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
+				tcs.SetResult(null);
+			};
+			animation.TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseOut);
+			animation.Duration = 0.08;
+			animation.RepeatCount = 2;
+			animation.AutoReverses = true;
+			animation.From = NSValue.FromCGPoint(new CGPoint(animationView.Center.X, animationView.Center.Y - 10.0f));
+			animation.To = NSValue.FromCGPoint(new CGPoint(animationView.Center.X, animationView.Center.Y + 10.0f));
+			animationView.Layer.AddAnimation(animation, "position");
+			return tcs.Task;
+		}
+
+		public Task<string> AnimateForAnotherEntry()
+		{
+			var tcs = new TaskCompletionSource<string> ();
+
+			ResetPinBoxes();
+
+			var transition = new CATransition
+			{
+				Type = CAAnimation.TransitionPush,
+				Subtype = CAAnimation.TransitionFromRight,
+				Duration = 0.5,
+				TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseInEaseOut),
+				RemovedOnCompletion = true
+			};
+			transition.AnimationStopped += (s, e) => {
+				_passcode = null;
+				_fakeField.Text = null;
+
+				if(IsIPhone)
+					_fakeField.BecomeFirstResponder();
+
+				_passwordEntryFinished = tcs;
+			};
+			View.ExchangeSubview(0, 1);
+			animationView.Layer.AddAnimation(transition, "swipe");
+
+			return tcs.Task;
+		}
+
+        private Task<bool?> AnimateSetupForSecondEntry()
         {
-            ResetPassword();
+			var tcs = new TaskCompletionSource<bool?> ();
 
-            SystemSound.Vibrate.PlaySystemSound();
-
-            var animation = CABasicAnimation.FromKeyPath("position");
-            animation.RemovedOnCompletion = true;
-            animation.AnimationStopped += InvalidEntryAnimationFinished;
-            animation.TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseOut);
-            animation.Duration = 0.08;
-            animation.RepeatCount = 4;
-            animation.AutoReverses = true;
-            animation.From = NSValue.FromPointF(new PointF(animationView.Center.X - 10.0f, animationView.Center.Y));
-            animation.To = NSValue.FromPointF(new PointF(animationView.Center.X + 10.0f, animationView.Center.Y));
-            animationView.Layer.AddAnimation(animation, "position");
-        }
-
-        private void InvalidEntryAnimationFinished(object sender, CAAnimationStateEventArgs e)
-        {
-            ResetPinBoxes();
-            ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
-
-            RunFinishedAnimationIfRequested();
-        }
-
-        private void RunFinishedAnimationIfRequested()
-        {
-            if (_whenAnimationFinished != null)
-                _whenAnimationFinished();
-        }
-
-        private void AnimateValidEntry()
-        {
-            ResetPassword();
-
-            var animation = CABasicAnimation.FromKeyPath("position");
-            animation.RemovedOnCompletion = true;
-            animation.AnimationStopped += ValidEntryAnimationFinished;
-            animation.TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseOut);
-            animation.Duration = 0.08;
-            animation.RepeatCount = 2;
-            animation.AutoReverses = true;
-            animation.From = NSValue.FromPointF(new PointF(animationView.Center.X, animationView.Center.Y - 10.0f));
-            animation.To = NSValue.FromPointF(new PointF(animationView.Center.X, animationView.Center.Y + 10.0f));
-            animationView.Layer.AddAnimation(animation, "position");
-        }
-
-        private void ValidEntryAnimationFinished(object sender, CAAnimationStateEventArgs e)
-        {
-            ResetPinBoxes();
-
-            ChangePinBoxBallColor(_settings.Appearence.PinBoxBallColor);
-
-            RunFinishedAnimationIfRequested();
-        }
-
-        private void AnimateSetupForSecondEntry()
-        {
             ResetPinBoxes();
 
             var transition = new CATransition
@@ -451,24 +481,21 @@ namespace LockScreen
                                      TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseInEaseOut),
                                      RemovedOnCompletion = true
                                  };
-            transition.AnimationStopped += SetupForSecondEntryFinished;
-            View.ExchangeSubview(0, 1);
+			transition.AnimationStopped += (s,e) => {
+				_passcode = null;
+				_fakeField.Text = null;
+
+				if(IsIPhone)
+					_fakeField.BecomeFirstResponder();
+				tcs.SetResult(null);
+			};
+            
+			View.ExchangeSubview(0, 1);
             animationView.Layer.AddAnimation(transition, "swipe");
+
+			return tcs.Task;
         }
 
-        private void SetupForSecondEntryFinished(object sender, CAAnimationStateEventArgs e)
-        {
-            _passcode = null;
-            _fakeField.Text = null;
-
-            if(IsIPhone)
-                _fakeField.BecomeFirstResponder();
-        }
-
-        public void SwapContinuation(Action<string> continueWith)
-        {
-            _passwordEntryFinished = continueWith;
-        }
     }
 }
 
